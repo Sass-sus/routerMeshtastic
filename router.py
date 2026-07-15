@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 """
-Passerelle web Meshtastic
+Web Meshtastic
 --------------------------
-Se connecte à un module Meshtastic (USB ou TCP), écoute les messages du
-réseau maillé, les enregistre dans une base SQLite (un historique par
-appareil / noeud) et les expose via une petite interface web (Flask +
-Socket.IO) accessible depuis le réseau local.
+Connect to a Meshtastic node (USB or TCP), listen mesages of network, store them in a SQLite base (un device/node history) and expose them in a web interface(Flask +
+Socket.IO) on the local netwok.
 
-Variables d'environnement de configuration :
-    MESHTASTIC_CONNECTION = "serial" (défaut) ou "tcp"
-    MESHTASTIC_PORT       = chemin du port série, ex: /dev/ttyUSB0
-                            (laisser vide pour auto-détection)
-    MESHTASTIC_HOST       = adresse IP/hostname du noeud si connexion "tcp"
-    WEB_HOST              = adresse d'écoute du serveur web (défaut 0.0.0.0)
-    WEB_PORT              = port du serveur web (défaut 5000)
+environement variables :
+    MESHTASTIC_CONNECTION = "serial" (default) or TCP
+    MESHTASTIC_PORT       = serial port path, ex: /dev/ttyUSB0
+                            (leave blank for auto detection)
+    MESHTASTIC_HOST       = IP adress/node hostname if TCP connexion
+    WEB_HOST              = web server listener (default 0.0.0.0)
+    WEB_PORT              = web server port (default 5000)
 """
 
 import os
@@ -52,7 +50,7 @@ connection_status = {"connected": False, "detail": "Démarrage en cours..."}
 
 
 # ---------------------------------------------------------------------------
-# Base de données
+# Database
 # ---------------------------------------------------------------------------
 def get_db():
     conn = sqlite3.connect(DB_PATH, check_same_thread=False)
@@ -118,7 +116,7 @@ def get_last_message_per_node():
 
 
 # ---------------------------------------------------------------------------
-# Meshtastic : connexion et gestion des évènements
+# Meshtastic : connexion an element
 # ---------------------------------------------------------------------------
 def node_display_name(node_id):
     """Renvoie un nom lisible pour un noeud (long name, sinon short name, sinon id)."""
@@ -164,9 +162,9 @@ def on_receive(packet, interface_ref=None):
         to_num = packet.get("to")
         from_id = packet.get("fromId") or str(packet.get("from"))
 
-        # Un message envoyé à l'adresse de diffusion (broadcast) est rangé
-        # dans la conversation "Diffusion générale", les messages privés sont
-        # rangés sous l'identifiant de l'appareil qui les a envoyés.
+        # A message sent to diffusion adress (broadcast) is sort
+        # in the conversation "general", private messages are
+        # sort under the sender device ID
         is_broadcast = to_num in (0xFFFFFFFF, None)
         conv_id = BROADCAST_ID if is_broadcast else from_id
         name = node_display_name(from_id)
@@ -196,13 +194,13 @@ def on_connection_established(interface_ref=None, topic=pub.AUTO_TOPIC):
 
 def on_connection_lost(interface_ref=None, topic=pub.AUTO_TOPIC):
     connection_status["connected"] = False
-    connection_status["detail"] = "Connexion perdue, nouvelle tentative..."
-    print("[meshtastic] connexion perdue")
+    connection_status["detail"] = "Lost connexion, reconect..."
+    print("[meshtastic] lost connexion")
     socketio.emit("connection_status", connection_status)
 
 
 def connect_meshtastic():
-    """Boucle de connexion tolérante aux pannes : retente indéfiniment."""
+    """connection loop : retry forever"""
     global interface
 
     pub.subscribe(on_receive, "meshtastic.receive")
@@ -211,7 +209,7 @@ def connect_meshtastic():
 
     while True:
         try:
-            connection_status["detail"] = "Connexion au module Meshtastic..."
+            connection_status["detail"] = "Connexion to Meshtastic device..."
             socketio.emit("connection_status", connection_status)
 
             with interface_lock:
@@ -230,11 +228,11 @@ def connect_meshtastic():
                 try:
                     _ = interface.nodes
                 except Exception:
-                    raise ConnectionError("Interface Meshtastic non joignable")
+                    raise ConnectionError("Meshtastic interface unjoinable")
 
         except Exception as exc:  # noqa: BLE001
             connection_status["connected"] = False
-            connection_status["detail"] = f"Erreur de connexion : {exc}"
+            connection_status["detail"] = f"Connexion error : {exc}"
             print(f"[meshtastic] {connection_status['detail']}")
             socketio.emit("connection_status", connection_status)
             with interface_lock:
@@ -249,11 +247,11 @@ def periodic_node_refresh():
 
 
 # ---------------------------------------------------------------------------
-# Routes web
+# Web path
 # ---------------------------------------------------------------------------
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return render_template("routeurMeshtastic.html")
 
 
 @app.route("/api/status")
@@ -267,10 +265,10 @@ def api_nodes():
     last_messages = get_last_message_per_node()
     nodes = list(nodes_cache.values())
 
-    # Toujours proposer la conversation de diffusion générale en premier.
+    # Always the general channel first
     broadcast_entry = {
         "id": BROADCAST_ID,
-        "name": "Diffusion générale",
+        "name": "General channel",
         "shortName": "ALL",
         "lastHeard": None,
         "isSelf": False,
@@ -295,18 +293,18 @@ def api_send():
     text = (data or {}).get("text", "").strip()
 
     if not text:
-        return jsonify({"error": "Le message est vide."}), 400
+        return jsonify({"error": "Empty message"}), 400
 
     with interface_lock:
         if interface is None:
-            return jsonify({"error": "Module Meshtastic non connecté."}), 503
+            return jsonify({"error": "Meshtastic device not connected"}), 503
         try:
             if node_id == BROADCAST_ID:
                 interface.sendText(text)
             else:
                 interface.sendText(text, destinationId=node_id)
         except Exception as exc:  # noqa: BLE001
-            return jsonify({"error": f"Échec de l'envoi : {exc}"}), 500
+            return jsonify({"error": f"Send issue : {exc}"}), 500
 
     name = node_display_name(node_id)
     ts = save_message(node_id, name, "out", text)
@@ -322,7 +320,7 @@ def api_send():
 
 
 # ---------------------------------------------------------------------------
-# Point d'entrée
+# Entry point
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     init_db()
