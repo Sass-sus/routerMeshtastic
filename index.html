@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Passerelle Meshtastic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+  :root{
+    --bg: #14181a;
+    --panel: #1b2124;
+    --panel-alt: #21282b;
+    --line: #2c363a;
+    --text: #e7ece9;
+    --text-dim: #8fa19c;
+    --amber: #e0a343;
+    --amber-dim: #7a5c2e;
+    --signal: #5ec98f;
+    --signal-dim: #35483f;
+    --danger: #d3665a;
+    --radius: 3px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',sans-serif;
+    height:100vh;
+    overflow:hidden;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  /* -------- layout général -------- */
+  .app{
+    display:grid;
+    grid-template-columns: 300px 1fr;
+    grid-template-rows: 56px 1fr;
+    height:100vh;
+  }
+  header{
+    grid-column: 1 / 3;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding: 0 20px;
+    background: var(--panel);
+    border-bottom:1px solid var(--line);
+  }
+  header .brand{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  header .brand .dot{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--text-dim);
+    box-shadow:0 0 0 3px rgba(255,255,255,0.03);
+  }
+  header .brand .dot.on{
+    background:var(--signal);
+    box-shadow:0 0 8px 1px var(--signal);
+    animation:pulse 2s infinite;
+  }
+  @keyframes pulse{
+    0%,100%{opacity:1;}
+    50%{opacity:.45;}
+  }
+  header h1{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:15px;
+    letter-spacing:.06em;
+    margin:0;
+    text-transform:uppercase;
+    color:var(--text);
+  }
+  header .status-text{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    color:var(--text-dim);
+    letter-spacing:.03em;
+  }
+
+  /* -------- sidebar -------- */
+  .sidebar{
+    background:var(--panel);
+    border-right:1px solid var(--line);
+    overflow-y:auto;
+  }
+  .sidebar .section-label{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px;
+    letter-spacing:.12em;
+    color:var(--text-dim);
+    text-transform:uppercase;
+    padding:14px 16px 6px;
+  }
+  .node-item{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 16px;
+    cursor:pointer;
+    border-left:3px solid transparent;
+    transition:background .12s ease;
+  }
+  .node-item:hover{ background:var(--panel-alt); }
+  .node-item.active{
+    background:var(--panel-alt);
+    border-left-color:var(--amber);
+  }
+  .node-item .avatar{
+    width:34px;height:34px;
+    border-radius:var(--radius);
+    background:var(--panel-alt);
+    border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    font-weight:600;
+    color:var(--amber);
+    flex-shrink:0;
+  }
+  .node-item.active .avatar{ color:var(--bg); background:var(--amber); }
+  .node-item .meta{ min-width:0; flex:1; }
+  .node-item .name{
+    font-size:13.5px;
+    font-weight:600;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .node-item .preview{
+    font-size:11.5px;
+    color:var(--text-dim);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    margin-top:2px;
+  }
+  .node-item .id{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:10px;
+    color:var(--text-dim);
+  }
+
+  /* -------- zone de conversation -------- */
+  .chat{
+    display:flex;
+    flex-direction:column;
+    height:100%;
+    min-height:0;
+  }
+  .chat-header{
+    padding:14px 22px;
+    border-bottom:1px solid var(--line);
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+  }
+  .chat-header .name{ font-weight:600; font-size:15px; }
+  .chat-header .id{ font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-dim); }
+
+  .messages{
+    flex:1;
+    overflow-y:auto;
+    padding:20px 22px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .msg{
+    max-width:60%;
+    padding:9px 13px;
+    border-radius:var(--radius);
+    font-size:13.5px;
+    line-height:1.45;
+    position:relative;
+  }
+  .msg.in{
+    align-self:flex-start;
+    background:var(--panel-alt);
+    border:1px solid var(--line);
+  }
+  .msg.out{
+    align-self:flex-end;
+    background: rgba(224,163,67,0.14);
+    border:1px solid var(--amber-dim);
+  }
+  .msg .ts{
+    display:block;
+    font-family:'IBM Plex Mono',monospace;
+    font-size:9.5px;
+    color:var(--text-dim);
+    margin-top:5px;
+    letter-spacing:.03em;
+  }
+  .empty-state{
+    margin:auto;
+    text-align:center;
+    color:var(--text-dim);
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:.04em;
+  }
+
+  .composer{
+    border-top:1px solid var(--line);
+    padding:14px 22px;
+    display:flex;
+    gap:10px;
+  }
+  .composer input{
+    flex:1;
+    background:var(--panel-alt);
+    border:1px solid var(--line);
+    color:var(--text);
+    border-radius:var(--radius);
+    padding:11px 13px;
+    font-size:13.5px;
+    font-family:'Inter',sans-serif;
+  }
+  .composer input:focus{ outline:1px solid var(--amber); }
+  .composer button{
+    background:var(--amber);
+    border:none;
+    color:#1a1508;
+    font-weight:600;
+    font-size:13px;
+    padding:0 20px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    font-family:'IBM Plex Mono',monospace;
+    letter-spacing:.03em;
+  }
+  .composer button:disabled{
+    background:var(--panel-alt);
+    color:var(--text-dim);
+    cursor:not-allowed;
+  }
+
+  ::-webkit-scrollbar{ width:8px; }
+  ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:4px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <span class="dot" id="status-dot"></span>
+      <h1>Passerelle Meshtastic</h1>
+    </div>
+    <span class="status-text" id="status-text">connexion...</span>
+  </header>
+
+  <div class="sidebar">
+    <div class="section-label">Appareils du réseau</div>
+    <div id="node-list"></div>
+  </div>
+
+  <div class="chat">
+    <div class="chat-header" id="chat-header" style="display:none;">
+      <span class="name mono" id="chat-name"></span>
+      <span class="id" id="chat-id"></span>
+    </div>
+    <div class="messages" id="messages">
+      <div class="empty-state">Sélectionnez un appareil à gauche<br>pour afficher ou démarrer une conversation.</div>
+    </div>
+    <div class="composer" id="composer" style="display:none;">
+      <input type="text" id="msg-input" placeholder="Écrire un message..." maxlength="200" autocomplete="off">
+      <button id="send-btn">Envoyer</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const socket = io();
+let currentNodeId = null;
+let nodesById = {};
+
+const nodeListEl = document.getElementById('node-list');
+const messagesEl = document.getElementById('messages');
+const chatHeaderEl = document.getElementById('chat-header');
+const chatNameEl = document.getElementById('chat-name');
+const chatIdEl = document.getElementById('chat-id');
+const composerEl = document.getElementById('composer');
+const inputEl = document.getElementById('msg-input');
+const sendBtn = document.getElementById('send-btn');
+const statusDot = document.getElementById('status-dot');
+const statusText = document.getElementById('status-text');
+
+function initials(name){
+  if(!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  if(parts.length === 1) return parts[0].slice(0,2).toUpperCase();
+  return (parts[0][0] + parts[1][0]).toUpperCase();
+}
+
+function formatTime(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleString('fr-FR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'});
+}
+
+function renderNodeList(nodes){
+  nodesById = {};
+  nodeListEl.innerHTML = '';
+  nodes.forEach(n => {
+    nodesById[n.id] = n;
+    const item = document.createElement('div');
+    item.className = 'node-item' + (n.id === currentNodeId ? ' active' : '');
+    item.dataset.id = n.id;
+    item.innerHTML = `
+      <div class="avatar">${n.id === 'broadcast' ? 'ALL' : initials(n.name)}</div>
+      <div class="meta">
+        <div class="name">${n.name}</div>
+        <div class="preview">${n.lastMessage ? n.lastMessage : (n.id === 'broadcast' ? 'Canal commun du réseau' : 'Aucun message')}</div>
+      </div>
+    `;
+    item.addEventListener('click', () => selectNode(n.id));
+    nodeListEl.appendChild(item);
+  });
+}
+
+async function loadNodes(){
+  const res = await fetch('/api/nodes');
+  const nodes = await res.json();
+  renderNodeList(nodes);
+}
+
+async function selectNode(nodeId){
+  currentNodeId = nodeId;
+  document.querySelectorAll('.node-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.id === nodeId);
+  });
+
+  const node = nodesById[nodeId];
+  chatHeaderEl.style.display = 'flex';
+  composerEl.style.display = 'flex';
+  chatNameEl.textContent = node ? node.name : nodeId;
+  chatIdEl.textContent = nodeId === 'broadcast' ? '' : nodeId;
+
+  const res = await fetch('/api/messages/' + encodeURIComponent(nodeId));
+  const msgs = await res.json();
+  renderMessages(msgs);
+  inputEl.focus();
+}
+
+function renderMessages(msgs){
+  messagesEl.innerHTML = '';
+  if(msgs.length === 0){
+    messagesEl.innerHTML = '<div class="empty-state">Aucun message pour le moment.<br>Écrivez ci-dessous pour démarrer l’échange.</div>';
+    return;
+  }
+  msgs.forEach(m => appendMessage(m, false));
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function appendMessage(m, scroll=true){
+  if(messagesEl.querySelector('.empty-state')) messagesEl.innerHTML = '';
+  const div = document.createElement('div');
+  div.className = 'msg ' + (m.direction === 'out' ? 'out' : 'in');
+  div.innerHTML = `${escapeHtml(m.text)}<span class="ts mono">${m.direction === 'out' ? 'vous' : (m.node_name || '')} · ${formatTime(m.timestamp)}</span>`;
+  messagesEl.appendChild(div);
+  if(scroll) messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+async function sendMessage(){
+  const text = inputEl.value.trim();
+  if(!text || !currentNodeId) return;
+  inputEl.value = '';
+  sendBtn.disabled = true;
+  try{
+    const res = await fetch('/api/send', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({node_id: currentNodeId, text})
+    });
+    const data = await res.json();
+    if(data.error){
+      alert('Erreur : ' + data.error);
+    }
+  } finally {
+    sendBtn.disabled = false;
+    inputEl.focus();
+  }
+}
+
+sendBtn.addEventListener('click', sendMessage);
+inputEl.addEventListener('keydown', e => { if(e.key === 'Enter') sendMessage(); });
+
+socket.on('new_message', (m) => {
+  if(m.node_id === currentNodeId){
+    appendMessage(m);
+  }
+  loadNodes();
+});
+
+socket.on('nodes_update', (nodes) => {
+  renderNodeList(nodes);
+});
+
+socket.on('connection_status', (status) => {
+  statusDot.classList.toggle('on', status.connected);
+  statusText.textContent = status.detail;
+});
+
+fetch('/api/status').then(r => r.json()).then(status => {
+  statusDot.classList.toggle('on', status.connected);
+  statusText.textContent = status.detail;
+});
+
+loadNodes();
+setInterval(loadNodes, 15000);
+</script>
+</body>
+</html>

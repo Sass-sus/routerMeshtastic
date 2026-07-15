@@ -1,0 +1,22 @@
+[Unit]
+Description=Passerelle web Meshtastic
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/meshtastic-web
+ExecStart=/home/pi/meshtastic-web/venv/bin/python3 /home/pi/meshtastic-web/app.py
+Restart=always
+RestartSec=10
+Environment=MESHTASTIC_CONNECTION=serial
+Environment=MESHTASTIC_PORT=
+Environment=WEB_HOST=0.0.0.0
+Environment=WEB_PORT=5000
+
+# Autorise l'accès au port série (USB) du module Meshtastic
+SupplementaryGroups=dialout
+
+[Install]
+WantedBy=multi-user.target

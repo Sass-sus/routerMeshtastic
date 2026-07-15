@@ -1,0 +1,6 @@
+meshtastic>=2.5.0
+flask>=3.0.0
+flask-socketio>=5.3.6
+python-socketio>=5.11.0
+pypubsub>=4.0.3
+eventlet>=0.36.1
