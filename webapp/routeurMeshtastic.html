@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Passerelle Meshtastic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<link rel="stylesheet" href="webapp.css">
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <span class="dot" id="status-dot"></span>
+      <h1>Passerelle Meshtastic</h1>
+    </div>
+    <span class="status-text" id="status-text">connexion...</span>
+  </header>
+
+  <div class="sidebar">
+    <div class="section-label">Appareils du réseau</div>
+    <div id="node-list"></div>
+  </div>
+
+  <div class="chat">
+    <div class="chat-header" id="chat-header" style="display:none;">
+      <span class="name mono" id="chat-name"></span>
+      <span class="id" id="chat-id"></span>
+    </div>
+    <div class="messages" id="messages">
+      <div class="empty-state">Sélectionnez un appareil à gauche<br>pour afficher ou démarrer une conversation.</div>
+    </div>
+    <div class="composer" id="composer" style="display:none;">
+      <input type="text" id="msg-input" placeholder="Écrire un message..." maxlength="200" autocomplete="off">
+      <button id="send-btn">Envoyer</button>
+    </div>
+  </div>
+</div>
+<script src="webapp.js"></script>
+</body>
+</html>
