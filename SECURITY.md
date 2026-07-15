@@ -12,5 +12,6 @@ currently being supported with security updates.
 ## Reporting a Vulnerability
 
 Others users on your nettwork can access all your messages and `messages.db` (the history)
+Our code use a cloudflare open source JS code and an error return in the JS is not secured
 
 This will be patched soon
