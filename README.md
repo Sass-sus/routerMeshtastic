@@ -32,7 +32,7 @@ ls /dev/ttyUSB* /dev/ttyACM* 2>/dev/null
 ```bash
 source venv/bin/activate
 export MESHTASTIC_PORT=/dev/ttyUSB0   # adjust according to your port, or leave empty for auto-detection
-python3 app.py
+python3 router.py
 ```
 
 Then open, from another device connected to the same local network as the Pi: `http://<pi-ip-address>:5000`
@@ -46,7 +46,7 @@ If your Meshtastic module is already connected to the network (e.g., an ESP32 wi
 ```bash
 export MESHTASTIC_CONNECTION=tcp
 export MESHTASTIC_HOST=192.168.1.50   # IP address of the module
-python3 app.py
+python3 router.py
 ```
 
 ## 4. Permanent Launch at Startup (systemd)
