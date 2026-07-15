@@ -85,3 +85,10 @@ journalctl -u meshtastic-web -f
 - Only one Meshtastic device connected to the Pi can be managed at a time.
 - The `messages.db` file grows over time; you may manually clear or archive it if needed.
 - Port 5000 is open on all interfaces (`0.0.0.0`): do not expose this service directly to the internet without adding authentication.
+
+## 7. Incoming updates
+
+- Adding an auto-clear to the history every weeks
+- Creating users for every device and only the device can access the `messages.db`
+- Adding secure authentification with the MAC adress and cutting access to the internet
+- Preventing access from the public network
