@@ -25,8 +25,8 @@ from flask_socketio import SocketIO
 from pubsub import pub
 
 import meshtastic
-import meshtastic.serial_interface
-import meshtastic.tcp_interface
+from meshtastic.serial_interface import SerialInterface
+from meshtastic.tcp_interface import TCPInterface
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "messages.db")
@@ -251,7 +251,7 @@ def periodic_node_refresh():
 # ---------------------------------------------------------------------------
 @app.route("/")
 def index():
-    return render_template("routeurMeshtastic.html")
+    return render_template("/webapp/webapp.html")
 
 
 @app.route("/api/status")
