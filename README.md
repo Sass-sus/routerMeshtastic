@@ -1,72 +1,63 @@
-# Passerelle web Meshtastic pour Raspberry Pi
+# Meshtastic Web Gateway for Raspberry Pi
 
-Ce programme tourne en permanence sur le Raspberry Pi. Il se connecte à un
-module Meshtastic (branché en USB, ou accessible en Wi-Fi/TCP), écoute les
-messages du réseau maillé, et propose une petite interface web accessible
-depuis n'importe quel appareil de votre réseau local. Chaque appareil du
-réseau mesh dispose de sa propre conversation (comme une messagerie), en plus
-du canal de diffusion générale.
+This program runs continuously on the Raspberry Pi. It connects to a Meshtastic module (via USB or accessible over Wi-Fi/TCP), listens to messages on the mesh network, and provides a lightweight web interface accessible from any device on your local network. Each device in the mesh network has its own conversation (similar to a messaging app), in addition to the general broadcast channel.
 
-## 1. Prérequis matériel
+## 1. Hardware Requirements
 
-- Un Raspberry Pi (n'importe quel modèle récent convient).
-- Un module Meshtastic (ex: Heltec, T-Beam, RAK...) branché en USB sur le Pi
-  **ou** un module accessible sur le réseau Wi-Fi (connexion TCP).
+- A Raspberry Pi (any recent model is suitable).
+- A Meshtastic module (e.g., Heltec, T-Beam, RAK...) connected via USB to the Pi **or** a module accessible over the Wi-Fi network (TCP connection).
 
 ## 2. Installation
 
 ```bash
-# Copier ce dossier sur le Raspberry Pi, par exemple dans /home/pi/
+# Copy this folder to the Raspberry Pi, for example to /home/pi/
 cd /home/pi/meshtastic-web
 
-# Créer un environnement virtuel Python
+# Create a Python virtual environment
 python3 -m venv venv
 source venv/bin/activate
 
-# Installer les dépendances
+# Install dependencies
 pip install -r requirements.txt
 ```
 
-Si votre module est branché en USB, repérez son port avec :
+If your module is connected via USB, identify its port with:
 
 ```bash
 ls /dev/ttyUSB* /dev/ttyACM* 2>/dev/null
 ```
 
-## 3. Lancement manuel (pour tester)
+## 3. Manual Launch (for testing)
 
 ```bash
 source venv/bin/activate
-export MESHTASTIC_PORT=/dev/ttyUSB0   # adaptez selon votre port, ou laissez vide pour l'auto-détection
+export MESHTASTIC_PORT=/dev/ttyUSB0   # adjust according to your port, or leave empty for auto-detection
 python3 app.py
 ```
 
-Puis ouvrez, depuis un autre appareil connecté au même réseau Wi-Fi/local
-que le Pi : `http://<adresse-ip-du-pi>:5000`
+Then open, from another device connected to the same local network as the Pi: `http://<pi-ip-address>:5000`
 
-Trouvez l'adresse IP du Pi avec `hostname -I`.
+Find the Pi's IP address with `hostname -I`.
 
-### Connexion via Wi-Fi (TCP) plutôt qu'USB
+### Connection via Wi-Fi (TCP) instead of USB
 
-Si votre module Meshtastic est déjà relié au réseau (ex: ESP32 avec Wi-Fi
-activé), utilisez :
+If your Meshtastic module is already connected to the network (e.g., an ESP32 with Wi-Fi enabled), use:
 
 ```bash
 export MESHTASTIC_CONNECTION=tcp
-export MESHTASTIC_HOST=192.168.1.50   # adresse IP du module
+export MESHTASTIC_HOST=192.168.1.50   # IP address of the module
 python3 app.py
 ```
 
-## 4. Lancement permanent au démarrage (systemd)
+## 4. Permanent Launch at Startup (systemd)
 
-Pour que le programme tourne en permanence, y compris après un redémarrage
-du Raspberry Pi :
+To ensure the program runs continuously, including after the Raspberry Pi restarts:
 
 ```bash
-# Adaptez les chemins et l'utilisateur dans le fichier si besoin
+# Adjust paths and user in the file if needed
 sudo cp meshtastic-web.service /etc/systemd/system/
 
-# Ajoutez votre utilisateur au groupe dialout (accès au port série USB)
+# Add your user to the dialout group (for USB serial port access)
 sudo usermod -aG dialout pi
 
 sudo systemctl daemon-reload
@@ -74,30 +65,23 @@ sudo systemctl enable meshtastic-web
 sudo systemctl start meshtastic-web
 ```
 
-Vérifier l'état et les logs :
+Check status and logs:
 
 ```bash
 sudo systemctl status meshtastic-web
 journalctl -u meshtastic-web -f
 ```
 
-## 5. Fonctionnement de la messagerie
+## 5. Messaging Functionality
 
-- Chaque appareil détecté sur le réseau mesh apparaît dans la liste de
-  gauche, avec son nom Meshtastic.
-- Cliquer sur un appareil ouvre son historique de messages, envoyés et
-  reçus en messages **directs** (privés) avec cet appareil.
-- Le canal **« Diffusion générale »** regroupe les messages envoyés à tout
-  le réseau (broadcast), comme dans l'application Meshtastic classique.
-- Les messages sont enregistrés dans un fichier `messages.db` (SQLite), donc
-  l'historique est conservé même après redémarrage du Pi.
-- Les nouveaux messages apparaissent en temps réel, sans recharger la page
-  (grâce à Socket.IO).
+- Each detected device on the mesh network appears in the left list, displaying its Meshtastic name.
+- Clicking on a device opens its message history, showing sent and received **direct** (private) messages with that device.
+- The **"General Broadcast"** channel aggregates messages sent to the entire network (broadcast), as in the classic Meshtastic app.
+- Messages are saved in a `messages.db` file (SQLite), so history is preserved even after the Pi restarts.
+- New messages appear in real-time without refreshing the page (using Socket.IO).
 
-## 6. Notes et limites
+## 6. Notes and Limitations
 
-- Un seul appareil Meshtastic connecté au Pi peut être géré à la fois.
-- Le fichier `messages.db` grossit avec le temps ; vous pouvez le vider ou
-  l'archiver manuellement si besoin.
-- Le port 5000 est ouvert sur toutes les interfaces (`0.0.0.0`) : n'exposez
-  pas ce service directement sur Internet sans ajouter une authentification.
+- Only one Meshtastic device connected to the Pi can be managed at a time.
+- The `messages.db` file grows over time; you may manually clear or archive it if needed.
+- Port 5000 is open on all interfaces (`0.0.0.0`): do not expose this service directly to the internet without adding authentication.
